@@ -293,9 +293,9 @@ class GraphRangeGUI(GraphPaneGUI):
             self._update_plot()
 
 
-class VideoGUI(AbstractSequencerGUI):
+class ImagesGUI(AbstractSequencerGUI):
     def __init__(self):
-        super(VideoGUI, self).__init__()
+        super(ImagesGUI, self).__init__()
 
         self.capture = None
         self.plotted_y_variable = None
@@ -306,11 +306,18 @@ class VideoGUI(AbstractSequencerGUI):
         self.image_widget = RawImageWidget.RawImageWidget()
         self.image_widget.scaled = True
 
-        self.button_play_movie = QtWidgets.QPushButton('Play movie >>')
+        self.button_fwd.setText('FWD')
+        self.button_fwd.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipForward))
+        self.button_bwd.setText('BWD')
+        self.button_bwd.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward))
+
+        self.button_play_movie = QtWidgets.QPushButton()
         self.button_play_movie.resize(100, 20)
+        self.button_play_movie.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
         self.button_play_movie.clicked.connect(self.on_play_movie)
 
-        self.button_stop_movie = QtWidgets.QPushButton('Stop movie |_|')
+        self.button_stop_movie = QtWidgets.QPushButton()
+        self.button_stop_movie.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPause))
         self.button_stop_movie.resize(100, 20)
         self.button_stop_movie.clicked.connect(self.on_stop_movie)
 
@@ -382,6 +389,7 @@ class VideoGUI(AbstractSequencerGUI):
         self.is_movie_playing = False
 
 
+
 if QtWidgets.QApplication.instance() is None:
     app = QtWidgets.QApplication(sys.argv)
 
@@ -410,8 +418,8 @@ def graph_range(repl_globals, tracker_variable_name, tracker_range_variable_name
     win.show()
 
 
-def video(repl_globals, tracker_variable_name, plotted_y_variable_name):
-    win = VideoGUI()
+def image_sequence(repl_globals, tracker_variable_name, plotted_y_variable_name):
+    win = ImagesGUI()
     windows.append(win)
     win.repl_globals = repl_globals
     win.plotted_y_variable_name = plotted_y_variable_name
