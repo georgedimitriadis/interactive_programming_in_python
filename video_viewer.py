@@ -10,13 +10,19 @@ from PyQt5.QtWidgets import (QApplication, QHBoxLayout, QLineEdit,
                              QWidget, QShortcut)
 import sys
 
+import uuid
+
 import constants as ct
+
+open_windows = {}
 
 
 class VideoPlayer(QWidget):
 
     def __init__(self, repl_globals=None, position_var_name=None, file_name_var_name=None, parent=None):
         super(VideoPlayer, self).__init__(parent)
+
+        self.uuid = uuid.uuid4()
 
         self.repl_globals = repl_globals
         self.position_var_name = position_var_name
@@ -36,7 +42,7 @@ class VideoPlayer(QWidget):
         self.video_widget = QVideoWidget(self)
 
         self.media_player.setVideoOutput(self.video_widget)
-        self.media_player.stateChanged.connect(self.one_media_state_changed)
+        self.media_player.stateChanged.connect(self.on_media_state_changed)
         self.media_player.positionChanged.connect(self.on_position_change)
         self.media_player.positionChanged.connect(self.handle_label)
         self.media_player.durationChanged.connect(self.on_duration_changed)
@@ -130,7 +136,7 @@ class VideoPlayer(QWidget):
         else:
             self.media_player.play()
 
-    def one_media_state_changed(self, state):
+    def on_media_state_changed(self, state):
         if self.media_player.state() == QMediaPlayer.PlayingState:
             self.playButton.setIcon(
                 self.style().standardIcon(QStyle.SP_MediaPause))
@@ -154,7 +160,12 @@ class VideoPlayer(QWidget):
 
     def handle_quit(self):
         self.media_player.stop()
-        app.quit()
+        del open_windows[self.uuid]
+        self.close()
+
+    def closeEvent(self, event):
+        self.handle_quit()
+        event.accept()
 
     def handle_fullscreen(self):
         if self.windowState() & Qt.WindowFullScreen:
@@ -252,8 +263,5 @@ windows = []
 def video(repl_globals, position_var_name, file_name_var_name):
     win = VideoPlayer(repl_globals=repl_globals, position_var_name=position_var_name,
                       file_name_var_name=file_name_var_name)
-    windows.append(win)
-    #win.setAcceptDrops(True)
+    open_windows[win.uuid] = win
     win.show()
-    #win.load_film(repl_globals[file_name_var_name])
-    #win.widescreen = True

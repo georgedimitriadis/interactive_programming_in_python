@@ -6,9 +6,13 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.widgets import RawImageWidget
 
+import uuid
+
 import cv2
 
 import constants as ct
+
+open_windows = {}
 
 
 class AbstractSequencerGUI(QtWidgets.QWidget):
@@ -16,6 +20,7 @@ class AbstractSequencerGUI(QtWidgets.QWidget):
         # call super class constructor
         super(AbstractSequencerGUI, self).__init__()
 
+        self.uuid = uuid.uuid4()
         self.repl_globals = None
         self.plotted_y_variable_name = None
         self.plotted_x_variable_name = None
@@ -33,10 +38,12 @@ class AbstractSequencerGUI(QtWidgets.QWidget):
         self.setLayout(self.layout_window)
         self.buttons_layout = QtWidgets.QHBoxLayout()
 
-        self.button_fwd = QtWidgets.QPushButton('   >>  FORWARDS   ')
+        self.button_fwd = QtWidgets.QPushButton('FWD')
+        self.button_fwd.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_ArrowForward))
         self.button_fwd.clicked.connect(self.on_button_forwards)
 
-        self.button_bwd = QtWidgets.QPushButton('   BACKWARDS <<   ')
+        self.button_bwd = QtWidgets.QPushButton('BWD')
+        self.button_bwd.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_ArrowBack))
         self.button_bwd.clicked.connect(self.on_button_backwards)
 
         self.label_position = QtWidgets.QLabel('     POSITION:  ')
@@ -60,6 +67,11 @@ class AbstractSequencerGUI(QtWidgets.QWidget):
         self.layout_window.insertWidget(-1, self.slider_position)
 
         self.resize(800, 600)
+
+    def closeEvent(self, event):
+        del open_windows[self.uuid]
+        self.close()
+        event.accept()
 
     def on_button_forwards(self):
         index = self.repl_globals[self.tracker_variable_name]
@@ -306,11 +318,6 @@ class ImagesGUI(AbstractSequencerGUI):
         self.image_widget = RawImageWidget.RawImageWidget()
         self.image_widget.scaled = True
 
-        self.button_fwd.setText('FWD')
-        self.button_fwd.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipForward))
-        self.button_bwd.setText('BWD')
-        self.button_bwd.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaSkipBackward))
-
         self.button_play_movie = QtWidgets.QPushButton()
         self.button_play_movie.resize(100, 20)
         self.button_play_movie.setIcon(self.style().standardIcon(QtWidgets.QStyle.SP_MediaPlay))
@@ -393,12 +400,10 @@ class ImagesGUI(AbstractSequencerGUI):
 if QtWidgets.QApplication.instance() is None:
     app = QtWidgets.QApplication(sys.argv)
 
-windows = []
-
 
 def graph_pane(repl_globals, tracker_variable_name, plotted_y_variable_name, plotted_x_variable_name=None):
     win = GraphPaneGUI()
-    windows.append(win)
+    open_windows[win.uuid] = win
     win.repl_globals = repl_globals
     win.plotted_y_variable_name = plotted_y_variable_name
     win.plotted_x_variable_name = plotted_x_variable_name
@@ -409,7 +414,7 @@ def graph_pane(repl_globals, tracker_variable_name, plotted_y_variable_name, plo
 def graph_range(repl_globals, tracker_variable_name, tracker_range_variable_name,
                 plotted_y_variable_name, plotted_x_variable_name=None):
     win = GraphRangeGUI()
-    windows.append(win)
+    open_windows[win.uuid] = win
     win.repl_globals = repl_globals
     win.plotted_y_variable_name = plotted_y_variable_name
     win.plotted_x_variable_name = plotted_x_variable_name
@@ -420,7 +425,7 @@ def graph_range(repl_globals, tracker_variable_name, tracker_range_variable_name
 
 def image_sequence(repl_globals, tracker_variable_name, plotted_y_variable_name):
     win = ImagesGUI()
-    windows.append(win)
+    open_windows[win.uuid] = win
     win.repl_globals = repl_globals
     win.plotted_y_variable_name = plotted_y_variable_name
     win.tracker_variable_name = tracker_variable_name
