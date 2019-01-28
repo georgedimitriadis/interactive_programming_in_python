@@ -282,10 +282,11 @@ class GraphRangeGUI(GraphPaneGUI):
             # The connect argument allows a single line to be broken up (see pg.ArrayToQPath) so that the
             # 1D array data[index, :, :].flatten() shows up as multiple independent lines
             connect = np.ones(len(self.x_axis))
-            connect[np.arange(self.data.shape[1] - 1, self.data.shape[0] * self.data.shape[0], self.data.shape[1])] = 0
+
+            y = self.data[:, self.index:(self.index + self.index_range)].flatten()
+            connect[np.arange(self.index_range - 1, y.size, self.index_range)] = 0
             self.plot_data_item.opts['connect'] = connect
 
-            y = self.data[self.index:(self.index + self.index_range), :].flatten()
             self.plot_data_item.setData(self.x_axis, y)
 
     def on_timer_tick(self):
@@ -394,7 +395,6 @@ class ImagesGUI(AbstractSequencerGUI):
     def on_stop_movie(self):
         self.timer.setInterval(ct.TIMER_UPDATE_TIME_MILLIS)
         self.is_movie_playing = False
-
 
 
 if QtWidgets.QApplication.instance() is None:
