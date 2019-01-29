@@ -1,6 +1,8 @@
 
 
 import sys
+import os
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 import constants as ct
@@ -8,6 +10,7 @@ import constants as ct
 import uuid
 
 open_windows = {}
+
 
 class MainWindow(QtWidgets.QWidget):
     def __init__(self):
@@ -32,8 +35,9 @@ class MainWindow(QtWidgets.QWidget):
         font = QtGui.QFont('Times', pointSize=18, weight=QtGui.QFont.Bold)
         self.setFont(font)
 
-        self.pixmap_green = QtGui.QPixmap('green_dot.png')
-        self.pixmap_red = QtGui.QPixmap('red_dot.png')
+        current_path = os.path.dirname(os.path.realpath(__file__))
+        self.pixmap_green = QtGui.QPixmap(os.path.join(current_path, 'resources', 'green_dot.png'))
+        self.pixmap_red = QtGui.QPixmap(os.path.join(current_path, 'resources', 'red_dot.png'))
 
         layout_window = QtWidgets.QVBoxLayout()
         self.setLayout(layout_window)
