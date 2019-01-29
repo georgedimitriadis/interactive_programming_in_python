@@ -6,6 +6,8 @@ import numpy as np
 import pyqtgraph as pg
 from pyqtgraph.widgets import RawImageWidget
 
+import matplotlib.pyplot as plt
+
 import uuid
 
 import cv2
@@ -316,6 +318,11 @@ class ImagesGUI(AbstractSequencerGUI):
         self.data = None
         self.is_movie_playing = False
 
+        self.image_levels = None
+        self.lut = None
+
+        self.flip = None
+
         self.image_widget = RawImageWidget.RawImageWidget()
         self.image_widget.scaled = True
 
@@ -351,7 +358,7 @@ class ImagesGUI(AbstractSequencerGUI):
                 print('You need to have Open CV 3 installed to pass a video file to the video sequencer')
                 self.close()
         else:
-            self.data = np.array(self.repl_globals[self.plotted_y_variable_name])
+            self.data = self.repl_globals[self.plotted_y_variable_name]
 
     def _setup_maximum_index_value(self):
         if self.capture is not None:
@@ -366,9 +373,18 @@ class ImagesGUI(AbstractSequencerGUI):
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, self.index)
             ok, self.data = self.capture.read()
             if ok:
-                self.image_widget.setImage(np.transpose(self.data, [1, 0, 2]))
+                data = np.transpose(self.data, [1, 0, 2])
             else:
                 print('Could not retrieve frame {} from movie'.format(self.index))
+        else:
+            data = self.data[self.index, :, :].transpose()
+
+        if self.flip == 'ud' or self.flip == 'udlr':
+            data = np.fliplr(data)
+        if self.flip == 'lr' or self.flip == 'udlr':
+            data = np.flipud(data)
+
+        self.image_widget.setImage(data, levels=self.image_levels, lut=self.lut)
 
     def on_timer_tick(self):
         if self.repl_globals is not None:
@@ -423,10 +439,27 @@ def graph_range(repl_globals, tracker_variable_name, tracker_range_variable_name
     win.show()
 
 
-def image_sequence(repl_globals, tracker_variable_name, plotted_y_variable_name):
+def image_sequence(repl_globals, tracker_variable_name, plotted_y_variable_name,
+                   image_levels=None, colormap=None, flip=None):
     win = ImagesGUI()
     open_windows[win.uuid] = win
     win.repl_globals = repl_globals
     win.plotted_y_variable_name = plotted_y_variable_name
     win.tracker_variable_name = tracker_variable_name
+    win.image_levels = image_levels
+
+    max = 255
+    if image_levels is not None:
+        max = image_levels[1]
+
+    if colormap is not None:
+        if repl_globals[plotted_y_variable_name].__class__ is str:
+            print('Colormap info will not be used on video frames')
+        else:
+            colormap = plt.get_cmap(colormap)
+            colormap._init()
+            win.lut = (colormap._lut * max).view(np.ndarray)
+
+    win.flip = flip
+
     win.show()
