@@ -51,7 +51,9 @@ class GraphGUI(AbstractOneShotGUI):
         super(GraphGUI, self).__init__()
 
         self.data = None
-        self.index = None
+        self.stepmode = False
+        self.fillLevel = 0
+        self.brush = (255, 255, 255, 255)
 
         self.plot_widget = pg.PlotWidget()
         self.plot_data_item = pg.PlotDataItem()
@@ -68,10 +70,10 @@ class GraphGUI(AbstractOneShotGUI):
 
     def _setup_x_axis(self):
         if self.plotted_x_variable_name is None:
+            if len(self.data.shape) == 1:
+                self.x_axis = np.arange(self.data.shape[0])
             if len(self.data.shape) == 2:
-                self.x_axis = np.arange(self.data.shape[1])
-            if len(self.data.shape) == 3:
-                self.x_axis = np.tile(np.arange(self.data.shape[2]), self.data.shape[1])
+                self.x_axis = np.tile(np.arange(self.data.shape[1]), self.data.shape[0])
         else:
             try:
                 self.x_axis = np.array(self.repl_globals[self.plotted_x_variable_name])
@@ -79,26 +81,37 @@ class GraphGUI(AbstractOneShotGUI):
                 print('X axis variable to plot {} not defined in the REPL'.format(
                     self.plotted_x_variable_name))
                 self.close()
-            assert self.x_axis.shape[0] == self.data.shape[2], 'X axis length {} needs to be equal to data length {}' \
-                .format(self.x_axis.shape[0], self.data.shape[2])
+            if len(self.data) == len(self.x_axis):
+                self.stepmode = False
+                self.fillLevel = 0
+                self.brush = (255, 255, 255, 255)
+            elif len(self.data) + 1 == len(self.x_axis): # If the x axis is one larger than the y then draw a histogram
+                self.stepmode = True
+                self.fillLevel = 0
+                self.brush = (0, 0, 255, 150)
+            else:
+                print('X axis length {} needs to be equal (or one larger for a histogram) to data length {}'\
+                      .format(self.x_axis.shape[0], self.data.shape[-1]))
+                self.close()
 
-            if len(self.data.shape) == 3:
+            if len(self.data.shape) == 2:
                 # Tile so that the x_axis corresponds to data[index, :, :].flatten()
                 # example: t = [0,1,2,3] for data.shape=(i, 2, 4) becomes t = [0, 1, 2, 3, 0, 1, 2, 3, 4]
-                self.x_axis = np.tile(self.x_axis, self.data.shape[1])
+                self.x_axis = np.tile(self.x_axis, self.data.shape[0])
 
     def _update_plot(self):
-        if len(np.shape(self.data)) == 2:
-            self.plot_data_item.setData(self.data[self.index, :])
-        elif len(np.shape(self.data)) == 3:
+        if len(np.shape(self.data)) == 1:
+            self.plot_data_item.setData(self.x_axis, self.data, stepMode=self.stepmode,
+                                        fillLevel=self.fillLevel, brush=self.brush)
+        elif len(np.shape(self.data)) == 2:
             # The connect argument allows a single line to be broken up (see pg.ArrayToQPath) so that the
             # 1D array data[index, :, :].flatten() shows up as multiple independent lines
             connect = np.ones(len(self.x_axis))
-            connect[np.arange(self.data.shape[2] - 1, self.data.shape[2] * self.data.shape[1], self.data.shape[2])] = 0
+            connect[np.arange(self.data.shape[1] - 1, self.data.shape[1] * self.data.shape[0], self.data.shape[1])] = 0
             self.plot_data_item.opts['connect'] = connect
 
-            y = self.data[self.index, :, :].flatten()
-            self.plot_data_item.setData(self.x_axis, y)
+            y = self.data.flatten()
+            self.plot_data_item.setData(x=self.x_axis, y=y)
 
     def on_timer_tick(self):
         if self.repl_globals is not None:
@@ -171,6 +184,7 @@ def graph(repl_globals, plotted_y_variable_name, plotted_x_variable_name=None):
     win.plotted_y_variable_name = plotted_y_variable_name
     win.plotted_x_variable_name = plotted_x_variable_name
     win.show()
+
 
 def image(repl_globals, plotted_y_variable_name,
                    image_levels=None, colormap=None, flip=None):
