@@ -52,7 +52,7 @@ class GraphGUI(AbstractOneShotGUI):
 
         self.data = None
         self.stepmode = False
-        self.fillLevel = 0
+        self.fillLevel = None
         self.brush = (255, 255, 255, 255)
 
         self.plot_widget = pg.PlotWidget()
@@ -83,7 +83,7 @@ class GraphGUI(AbstractOneShotGUI):
                 self.close()
             if len(self.data) == len(self.x_axis):
                 self.stepmode = False
-                self.fillLevel = 0
+                self.fillLevel = None
                 self.brush = (255, 255, 255, 255)
             elif len(self.data) + 1 == len(self.x_axis): # If the x axis is one larger than the y then draw a histogram
                 self.stepmode = True
@@ -101,8 +101,11 @@ class GraphGUI(AbstractOneShotGUI):
 
     def _update_plot(self):
         if len(np.shape(self.data)) == 1:
-            self.plot_data_item.setData(self.x_axis, self.data, stepMode=self.stepmode,
-                                        fillLevel=self.fillLevel, brush=self.brush)
+            if self.fillLevel is None:
+                self.plot_data_item.setData(self.x_axis, self.data, stepMode=self.stepmode, brush=self.brush)
+            else:
+                self.plot_data_item.setData(self.x_axis, self.data, stepMode=self.stepmode,
+                                            fillLevel=self.fillLevel, brush=self.brush)
         elif len(np.shape(self.data)) == 2:
             # The connect argument allows a single line to be broken up (see pg.ArrayToQPath) so that the
             # 1D array data[index, :, :].flatten() shows up as multiple independent lines
