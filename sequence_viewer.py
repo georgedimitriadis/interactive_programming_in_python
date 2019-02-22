@@ -27,10 +27,14 @@ class AbstractSequencerGUI(QtWidgets.QWidget):
         self.plotted_y_variable_name = None
         self.plotted_x_variable_name = None
         self.tracker_variable_name = None
+        self.index = None
         self.max_index = None
         self.min_index = 0
+        self.data = None
         self.x_axis = None
         self.text_is_being_edited = False
+        self.transform_name = None
+        self.transform = None
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.on_timer_tick)
@@ -123,8 +127,6 @@ class GraphPaneGUI(AbstractSequencerGUI):
     def __init__(self):
         super(GraphPaneGUI, self).__init__()
 
-        self.data = None
-        self.index = None
         self.stepmode = False
         self.fillLevel = None
         self.brush = (255, 255, 255, 255)
@@ -137,10 +139,22 @@ class GraphPaneGUI(AbstractSequencerGUI):
 
     def _load_data(self):
         try:
-            self.data = np.array(self.repl_globals[self.plotted_y_variable_name])
+            temp = self.repl_globals[self.plotted_y_variable_name]
         except KeyError:
             print('Y axis variable to plot {} not defined in the REPL'.format(self.plotted_y_variable_name))
             self.close()
+
+        if type(temp).__name__ == 'memmap':
+            self.data = temp[:]
+        else:
+            self.data = np.array(temp)
+
+        if self.transform_name is not None:
+            try:
+                self.transform = self.repl_globals[self.transform_name]
+            except KeyError:
+                print('Transform function {} to push the data through is not defined in the REPL'.format(self.transform_name))
+                self.close()
 
     def _setup_maximum_index_value(self):
         self.max_index = np.shape(self.data)[0] - 1
@@ -181,6 +195,8 @@ class GraphPaneGUI(AbstractSequencerGUI):
     def _update_plot(self):
         if len(np.shape(self.data)) == 2:
             y = self.data[self.index, :]
+            if self.transform is not None:
+                y = self.transform(y)
             if self.fillLevel is None:
                 self.plot_data_item.setData(self.x_axis, y, stepMode=self.stepmode, brush=self.brush)
             else:
@@ -193,7 +209,12 @@ class GraphPaneGUI(AbstractSequencerGUI):
             connect[np.arange(self.data.shape[2] - 1, self.data.shape[2] * self.data.shape[1], self.data.shape[2])] = 0
             self.plot_data_item.opts['connect'] = connect
 
-            y = self.data[self.index, :, :].flatten()
+            y = self.data[self.index, :, :]
+
+            if self.transform is not None:
+                y = self.transform(y)
+
+            y = y.flatten()
             self.plot_data_item.setData(self.x_axis, y)
 
     def on_timer_tick(self):
@@ -299,13 +320,23 @@ class GraphRangeGUI(GraphPaneGUI):
     def _update_plot(self):
         if len(np.shape(self.data)) == 1:
             y = self.data[self.index:(self.index + self.index_range)]
+
+            if self.transform is not None:
+                y = self.transform(y)
+
             self.plot_data_item.setData(self.x_axis, y)
+
         elif len(np.shape(self.data)) == 2:
             # The connect argument allows a single line to be broken up (see pg.ArrayToQPath) so that the
             # 1D array data[index, :, :].flatten() shows up as multiple independent lines
             connect = np.ones(len(self.x_axis))
 
-            y = self.data[:, self.index:(self.index + self.index_range)].flatten()
+            y = self.data[:, self.index:(self.index + self.index_range)]
+
+            if self.transform is not None:
+                y = self.transform(y)
+
+            y = y.flatten()
             connect[np.arange(self.index_range - 1, y.size, self.index_range)] = 0
             self.plot_data_item.opts['connect'] = connect
 
@@ -335,7 +366,6 @@ class ImagesGUI(AbstractSequencerGUI):
         self.capture = None
         self.plotted_y_variable = None
         self.index = None
-        self.data = None
         self.is_movie_playing = False
 
         self.image_levels = None
@@ -437,18 +467,20 @@ if QtWidgets.QApplication.instance() is None:
     app = QtWidgets.QApplication(sys.argv)
 
 
-def graph_pane(repl_globals, tracker_variable_name, plotted_y_variable_name, plotted_x_variable_name=None):
+def graph_pane(repl_globals, tracker_variable_name, plotted_y_variable_name,
+               plotted_x_variable_name=None, transform_name=None):
     win = GraphPaneGUI()
     open_windows[win.uuid] = win
     win.repl_globals = repl_globals
     win.plotted_y_variable_name = plotted_y_variable_name
     win.plotted_x_variable_name = plotted_x_variable_name
     win.tracker_variable_name = tracker_variable_name
+    win.transform_name = transform_name
     win.show()
 
 
 def graph_range(repl_globals, tracker_variable_name, tracker_range_variable_name,
-                plotted_y_variable_name, plotted_x_variable_name=None):
+                plotted_y_variable_name, plotted_x_variable_name=None, transform_name=None):
     win = GraphRangeGUI()
     open_windows[win.uuid] = win
     win.repl_globals = repl_globals
@@ -456,6 +488,7 @@ def graph_range(repl_globals, tracker_variable_name, tracker_range_variable_name
     win.plotted_x_variable_name = plotted_x_variable_name
     win.tracker_variable_name = tracker_variable_name
     win.tracker_range_variable_name = tracker_range_variable_name
+    win.transform_name = transform_name
     win.show()
 
 

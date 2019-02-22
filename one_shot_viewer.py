@@ -63,10 +63,15 @@ class GraphGUI(AbstractOneShotGUI):
 
     def _load_data(self):
         try:
-            self.data = np.array(self.repl_globals[self.plotted_y_variable_name])
+            temp = self.repl_globals[self.plotted_y_variable_name]
         except KeyError:
             print('Y axis variable to plot {} not defined in the REPL'.format(self.plotted_y_variable_name))
             self.close()
+
+        if type(temp).__name__ == 'memmap':
+            self.data = temp[:]
+        else:
+            self.data = np.array(temp)
 
     def _setup_x_axis(self):
         if self.plotted_x_variable_name is None:
