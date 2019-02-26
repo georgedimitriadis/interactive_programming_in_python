@@ -156,6 +156,7 @@ class ImageGUI(AbstractOneShotGUI):
             self.close()
 
     def _update_plot(self):
+        '''
         if self.capture is not None:
             self.capture.set(cv2.CAP_PROP_POS_FRAMES, self.index)
             ok, self.data = self.capture.read()
@@ -164,7 +165,10 @@ class ImageGUI(AbstractOneShotGUI):
             else:
                 print('Could not retrieve frame {} from movie'.format(self.index))
         else:
+
             data = self.data[self.index, :, :].transpose()
+        '''
+        data = self.data.transpose()
 
         if self.flip == 'ud' or self.flip == 'udlr':
             data = np.fliplr(data)
@@ -217,3 +221,4 @@ def image(repl_globals, plotted_y_variable_name,
     win.flip = flip
 
     win.show()
+
