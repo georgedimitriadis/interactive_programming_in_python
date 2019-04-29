@@ -1,16 +1,18 @@
 
 import sys
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 import numpy as np
 import pyqtgraph as pg
+pg.setConfigOption('background', (200, 0, 0, 50))
+pg.setConfigOption('foreground', (0, 0, 200, 255))
 from pyqtgraph.widgets import RawImageWidget
 
 import matplotlib.pyplot as plt
 
 import uuid
 
-import cv2
+import image_superposition as ims
 
 import constants as ct
 
@@ -57,6 +59,7 @@ class GraphGUI(AbstractOneShotGUI):
 
         self.plot_widget = pg.PlotWidget()
         self.plot_data_item = pg.PlotDataItem()
+        self.plot_data_item.setPen((0, 0, 0, 255))
         self.plot_widget.addItem(self.plot_data_item)
 
         self.layout_window.insertWidget(0, self.plot_widget)
@@ -86,23 +89,29 @@ class GraphGUI(AbstractOneShotGUI):
                 print('X axis variable to plot {} not defined in the REPL'.format(
                     self.plotted_x_variable_name))
                 self.close()
-            if len(self.data) == len(self.x_axis):
-                self.stepmode = False
-                self.fillLevel = None
-                self.brush = (255, 255, 255, 255)
-            elif len(self.data) + 1 == len(self.x_axis): # If the x axis is one larger than the y then draw a histogram
-                self.stepmode = True
-                self.fillLevel = 0
-                self.brush = (0, 0, 255, 150)
-            else:
-                print('X axis length {} needs to be equal (or one larger for a histogram) to data length {}'\
-                      .format(self.x_axis.shape[0], self.data.shape[-1]))
-                self.close()
+            if len(self.data.shape) == 1:
+                if len(self.data) == len(self.x_axis):
+                    self.stepmode = False
+                    self.fillLevel = None
+                    self.brush = (255, 255, 255, 255)
+                elif len(self.data) + 1 == len(self.x_axis): # If the x axis is one larger than the y then draw a histogram
+                    self.stepmode = True
+                    self.fillLevel = 0
+                    self.brush = (0, 0, 255, 150)
+                else:
+                    print('X axis length {} needs to be equal (or one larger for a histogram) to data length {}'\
+                          .format(self.x_axis.shape[0], self.data.shape[-1]))
+                    self.close()
 
             if len(self.data.shape) == 2:
-                # Tile so that the x_axis corresponds to data[index, :, :].flatten()
-                # example: t = [0,1,2,3] for data.shape=(i, 2, 4) becomes t = [0, 1, 2, 3, 0, 1, 2, 3, 4]
-                self.x_axis = np.tile(self.x_axis, self.data.shape[0])
+                if self.data.shape[-1] == len(self.x_axis):
+                    # Tile so that the x_axis corresponds to data[index, :, :].flatten()
+                    # example: t = [0,1,2,3] for data.shape=(i, 2, 4) becomes t = [0, 1, 2, 3, 0, 1, 2, 3, 4]
+                    self.x_axis = np.tile(self.x_axis, self.data.shape[0])
+                else:
+                    print('X axis length {} needs to be equal (or one larger for a histogram) to data length {}' \
+                          .format(self.x_axis.shape[0], self.data.shape[-1]))
+                    self.close()
 
     def _update_plot(self):
         if len(np.shape(self.data)) == 1:
@@ -133,20 +142,23 @@ class GraphGUI(AbstractOneShotGUI):
 
 
 class ImageGUI(AbstractOneShotGUI):
-    def __init__(self):
+    def __init__(self, num_of_images=1):
         super(ImageGUI, self).__init__()
 
+        self.num_of_images = num_of_images
         self.data = None
 
-        self.image_levels = None
-        self.lut = None
+        self.image_levels_name = None
+        self.colormaps_name = None
+        self.opacities_name = None
+        self.flips_name = None
 
-        self.flip = None
-
-        self.image_widget = RawImageWidget.RawImageWidget()
+        self.image_widget = ims.StackedRawImageWidget(self.num_of_images)
         self.image_widget.scaled = True
 
-        self.layout_window.insertWidget(0, self.image_widget)
+        self.layout_window.insertWidget(0, self.image_widget.base_image())
+
+
 
     def _load_data(self):
         try:
@@ -155,32 +167,107 @@ class ImageGUI(AbstractOneShotGUI):
             print('Variable to plot {} not defined in the REPL'.format(self.plotted_y_variable_name))
             self.close()
 
-    def _update_plot(self):
-        '''
-        if self.capture is not None:
-            self.capture.set(cv2.CAP_PROP_POS_FRAMES, self.index)
-            ok, self.data = self.capture.read()
-            if ok:
-                data = np.transpose(self.data, [1, 0, 2])
+    def _update_image_levels(self):
+        self.image_levels = None
+        if self.image_levels_name is not None:
+            try:
+                self.image_levels = self.repl_globals[self.image_levels_name]
+            except KeyError:
+                print('Variable of image_levels {} not defined in the REPL'.format(self.image_levels_name))
+                self.close()
+            if self.num_of_images > 1:
+                assert np.array(self.image_levels).shape[0] == self.num_of_images, 'The number of tuples or Nones in ' \
+                                                                                   'the image_levels is not the same ' \
+                                                                                   'as the number of images'
             else:
-                print('Could not retrieve frame {} from movie'.format(self.index))
-        else:
+                assert len(self.image_levels) == 2, 'The image_levels for one image needs to be a tuple with two numbers'
 
-            data = self.data[self.index, :, :].transpose()
-        '''
-        data = self.data.transpose()
+    def _update_colormaps(self):
+        self.colormaps = None
+        if self.colormaps_name is not None:
+            try:
+                self.colormaps = self.repl_globals[self.colormaps_name]
+            except KeyError:
+                print('Variable of colormaps {} not defined in the REPL'.format(self.colormaps_name))
+                self.close()
+            if self.num_of_images > 1:
+                assert np.array(self.colormaps).shape[0] == self.num_of_images, 'The number of strings or Nones in the'\
+                                                                                'colormaps is not the same as the' \
+                                                                                'number of images'
+            else:
+                assert self.colormaps.__class__ is str, 'The colormap for one image needs to be a string'
 
-        if self.flip == 'ud' or self.flip == 'udlr':
+    def _update_opacities(self):
+        self.opacities = None
+        if self.opacities_name is not None:
+            try:
+                self.opacities = self.repl_globals[self.opacities_name]
+            except KeyError:
+                print('Variable of opacities {} not defined in the REPL'.format(self.opacities_name))
+                self.close()
+            if self.num_of_images > 1:
+                assert np.array(self.opacities).shape[0] == self.num_of_images, 'The number of values or Nones in the' \
+                                                                                'opacities is not the same as the' \
+                                                                                'number of images'
+
+    def _update_flips(self):
+        self.flips = None
+        if self.flips_name is not None:
+            try:
+                self.flips = self.repl_globals[self.flips_name]
+            except KeyError:
+                print('Variable of flips {} not defined in the REPL'.format(self.flips_name))
+                self.close()
+            if self.num_of_images > 1:
+                assert np.array(self.flips).shape[0] == self.num_of_images, 'The number of strings or Nones in the' \
+                                                                            'flips is not the same as the' \
+                                                                            'number of images'
+
+    def _do_flip(self, data, flip):
+        if flip == 'ud' or flip == 'udlr':
             data = np.fliplr(data)
-        if self.flip == 'lr' or self.flip == 'udlr':
+        if flip == 'lr' or flip == 'udlr':
             data = np.flipud(data)
 
-        self.image_widget.setImage(data, levels=self.image_levels, lut=self.lut)
+        return data
+
+    def _update_plot(self):
+
+        if self.num_of_images == 1:
+            data = self.data
+            if len(data.shape) == 2:
+                data = np.transpose(data)
+            elif len(data.shape) == 3:
+                data = np.transpose(data, [1, 0, 2])
+            if self.flips is not None:
+                data = self._do_flip(data, self.flips)
+
+        else:
+            data = list(self.data).copy()
+            for f in np.arange(self.num_of_images):
+                if len(data[f].shape) == 2:
+                    data[f] = np.transpose(data[f])
+                    if self.flips is not None:
+                        data[f] = self._do_flip(data[f], self.flips)
+                elif len(data[f].shape) == 3:
+                    data[f] = np.transpose(data[f], [1, 0, 2])
+
+                if self.flips is not None:
+                    if self.flips[f] is not None:
+                        data[f] = self._do_flip(data[f], self.flips[f])
+
+        self.image_widget.assign_data(data)
 
     def on_timer_tick(self):
         if self.repl_globals is not None:
 
             self._load_data()
+
+            self._update_image_levels()
+            self._update_colormaps()
+            self._update_opacities()
+            self._update_flips()
+            self.image_widget.generate_luts(self.image_levels, self.colormaps, self.opacities)
 
             self._update_plot()
 
@@ -199,26 +286,17 @@ def graph(repl_globals, plotted_y_variable_name, plotted_x_variable_name=None):
 
 
 def image(repl_globals, plotted_y_variable_name,
-                   image_levels=None, colormap=None, flip=None):
-    win = ImageGUI()
+          image_levels_name=None, colormaps_name=None, opacities_name=None, flips_name=None,
+          number_of_images=1):
+
+    win = ImageGUI(num_of_images=number_of_images)
     open_windows[win.uuid] = win
     win.repl_globals = repl_globals
     win.plotted_y_variable_name = plotted_y_variable_name
-    win.image_levels = image_levels
-
-    max = 255
-    if image_levels is not None:
-        max = image_levels[1]
-
-    if colormap is not None:
-        if repl_globals[plotted_y_variable_name].__class__ is str:
-            print('Colormap info will not be used on video frames')
-        else:
-            colormap = plt.get_cmap(colormap)
-            colormap._init()
-            win.lut = (colormap._lut * max).view(np.ndarray)
-
-    win.flip = flip
+    win.image_levels_name = image_levels_name
+    win.colormaps_name = colormaps_name
+    win.opacities_name = opacities_name
+    win.flips_name = flips_name
 
     win.show()
 
