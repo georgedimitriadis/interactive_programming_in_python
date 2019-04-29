@@ -493,7 +493,7 @@ def graph_range(repl_globals, tracker_variable_name, tracker_range_variable_name
 
 
 def image_sequence(repl_globals, tracker_variable_name, plotted_y_variable_name,
-                   image_levels=None, colormap=None, flip=None):
+                   image_levels=None, colormap=None, opacity=None, flip=None):
     win = ImagesGUI()
     open_windows[win.uuid] = win
     win.repl_globals = repl_globals
@@ -512,6 +512,13 @@ def image_sequence(repl_globals, tracker_variable_name, plotted_y_variable_name,
             colormap = plt.get_cmap(colormap)
             colormap._init()
             win.lut = (colormap._lut * max).view(np.ndarray)
+    else:
+        win.lut = max * np.ones((259, 4))
+
+    if opacity is not None:
+        win.lut[:, 3] = opacity
+    else:
+        win.lut[:, 3] = 255
 
     win.flip = flip
 
