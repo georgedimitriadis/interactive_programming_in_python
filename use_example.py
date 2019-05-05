@@ -31,7 +31,7 @@ sequence_viewer.graph_pane(globals(), 'pane', 'data1')
 # The pane viewer shows te last one or two dimensions of a 2d or 3d data set and itterates over the first one.
 
 
-# Connect thwo guis
+# Connect two guis
 def pos1_to_pos2(pos1):
     if pos1 >= 0 and pos1 <= 4000:
         return int(pos1 / 10)
