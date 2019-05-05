@@ -4,8 +4,8 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 
 import numpy as np
 import pyqtgraph as pg
-pg.setConfigOption('background', (200, 0, 0, 50))
-pg.setConfigOption('foreground', (0, 0, 200, 255))
+pg.setConfigOption('background', (250, 250, 250, 255))
+pg.setConfigOption('foreground', (0, 0, 0, 255))
 from pyqtgraph.widgets import RawImageWidget
 
 import matplotlib.pyplot as plt
@@ -49,16 +49,20 @@ class AbstractOneShotGUI(QtWidgets.QWidget):
 
 
 class GraphGUI(AbstractOneShotGUI):
-    def __init__(self):
+    def __init__(self, scatter):
         super(GraphGUI, self).__init__()
 
         self.data = None
         self.stepmode = False
         self.fillLevel = None
         self.brush = (255, 255, 255, 255)
+        self.scatter = scatter
 
         self.plot_widget = pg.PlotWidget()
-        self.plot_data_item = pg.PlotDataItem()
+        if scatter:
+            self.plot_data_item = pg.ScatterPlotItem()
+        else:
+            self.plot_data_item = pg.PlotDataItem()
         self.plot_data_item.setPen((0, 0, 0, 255))
         self.plot_widget.addItem(self.plot_data_item)
 
@@ -120,7 +124,9 @@ class GraphGUI(AbstractOneShotGUI):
             else:
                 self.plot_data_item.setData(self.x_axis, self.data, stepMode=self.stepmode,
                                             fillLevel=self.fillLevel, brush=self.brush)
+
         elif len(np.shape(self.data)) == 2:
+
             # The connect argument allows a single line to be broken up (see pg.ArrayToQPath) so that the
             # 1D array data[index, :, :].flatten() shows up as multiple independent lines
             connect = np.ones(len(self.x_axis))
@@ -135,7 +141,7 @@ class GraphGUI(AbstractOneShotGUI):
 
             self._load_data()
 
-            if self.x_axis is None:
+            if self.x_axis is None or self.scatter is True:
                 self._setup_x_axis()
 
             self._update_plot()
@@ -157,8 +163,6 @@ class ImageGUI(AbstractOneShotGUI):
         self.image_widget.scaled = True
 
         self.layout_window.insertWidget(0, self.image_widget.base_image())
-
-
 
     def _load_data(self):
         try:
@@ -276,8 +280,8 @@ if QtWidgets.QApplication.instance() is None:
     app = QtWidgets.QApplication(sys.argv)
 
 
-def graph(repl_globals, plotted_y_variable_name, plotted_x_variable_name=None):
-    win = GraphGUI()
+def graph(repl_globals, plotted_y_variable_name, plotted_x_variable_name=None, scatter=False):
+    win = GraphGUI(scatter)
     open_windows[win.uuid] = win
     win.repl_globals = repl_globals
     win.plotted_y_variable_name = plotted_y_variable_name
