@@ -133,16 +133,23 @@ class BasicTransform(QtWidgets.QWidget):
 
             try:
                 self.repl_globals[self.output_var_name] = output_variable_value
+            except KeyError:
+                print('Variable {} not defined in the REPL'.format(self.output_var_name))
+                self.close()
+            try:
                 if output_variable_value.__class__ is bool:
                     if output_variable_value is True:
                         self.label_output.setPixmap(self.pixmap_green)
                     else:
                         self.label_output.setPixmap(self.pixmap_red)
-                else:
+                elif output_variable_value.__class__ is int or \
+                        output_variable_value.__class__ is float or \
+                        output_variable_value.__class__ is str:
                     self.label_output.setText(str(output_variable_value))
-            except KeyError:
-                print('Variable {} not defined in the REPL'.format(self.output_var_name))
-                self.close()
+                else:
+                    self.label_output.setText(str(self.output_var_name))
+            except:
+                pass
 
             self.label_transfrom_func_name.setStyleSheet("color: black")
         else:
