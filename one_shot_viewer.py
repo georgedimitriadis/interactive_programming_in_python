@@ -141,8 +141,8 @@ class GraphGUI(AbstractOneShotGUI):
 
             self._load_data()
 
-            if self.x_axis is None or self.scatter is True:
-                self._setup_x_axis()
+            #if self.x_axis is None or self.scatter is True:
+            self._setup_x_axis()
 
             self._update_plot()
 
