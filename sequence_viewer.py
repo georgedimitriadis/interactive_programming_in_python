@@ -434,7 +434,11 @@ class ImagesGUI(AbstractSequencerGUI):
         if self.flip == 'lr' or self.flip == 'udlr':
             data = np.flipud(data)
 
-        self.image_widget.setImage(data, levels=self.image_levels, lut=self.lut)
+        if self.capture is None:
+            self.image_widget.setImage(data, levels=self.image_levels, lut=self.lut)
+        else:
+            self.image_widget.setImage(data)
+
 
     def on_timer_tick(self):
         if self.repl_globals is not None:
