@@ -364,7 +364,7 @@ class ImagesGUI(AbstractSequencerGUI):
         super(ImagesGUI, self).__init__()
 
         self.capture = None
-        self.plotted_y_variable = None
+        self.base_image_name = None
         self.index = None
         self.is_movie_playing = False
 
@@ -374,6 +374,7 @@ class ImagesGUI(AbstractSequencerGUI):
         self.flip = None
 
         self.image_widget = RawImageWidget.RawImageWidget()
+
         self.image_widget.scaled = True
 
         self.button_play_movie = QtWidgets.QPushButton()
@@ -395,20 +396,30 @@ class ImagesGUI(AbstractSequencerGUI):
 
     def _load_data(self):
         try:
-            self.plotted_y_variable = self.repl_globals[self.plotted_y_variable_name]
+            self.base_image = self.repl_globals[self.base_image_name]
         except KeyError:
-            print('Variable to plot {} not defined in the REPL'.format(self.plotted_y_variable_name))
+            print('Variable to plot {} not defined in the REPL'.format(self.base_image_name))
             self.close()
 
-        if self.plotted_y_variable.__class__ is str:
+        if self.base_image.__class__ is str:
             try:
                 import cv2
-                self.capture = cv2.VideoCapture(self.plotted_y_variable)
+                self.capture = cv2.VideoCapture(self.base_image)
             except ModuleNotFoundError:
                 print('You need to have Open CV 3 installed to pass a video file to the video sequencer')
                 self.close()
         else:
             self.data = self.repl_globals[self.plotted_y_variable_name]
+
+        if self.superimposed_image_name is not None:
+            try:
+                self.superimposed_image = self.repl_globals[self.superimposed_image_name]
+            except KeyError:
+                print('Variable {} to superimpose to plot not defined in the REPL'.format(self.plotted_y_variable_name))
+                self.close()
+            if self.superimposed_image.shape[2] != 4:
+                print('Superimposed image needs transparency so it needs to be an RGBA (4 values in its 3rd dimension) matrix')
+                self.close()
 
     def _setup_maximum_index_value(self):
         if self.capture is not None:
@@ -428,6 +439,18 @@ class ImagesGUI(AbstractSequencerGUI):
                 print('Could not retrieve frame {} from movie'.format(self.index))
         else:
             data = self.data[self.index, :, :].transpose()
+
+        if self.superimposed_image_name is not None:
+            superimposed_image = np.transpose(self.superimposed_image, [1, 0, 2])
+            #superimposed_image = self.superimposed_image
+            if superimposed_image.shape[:2] != data.shape[:2]:
+                print('Superimposed image should have the same x, y dimensions as base image')
+                self.close()
+            visible_pixels_mask = superimposed_image[:, :, 3] > 0
+            if len(data.shape) == 3:
+                data[visible_pixels_mask] = superimposed_image[visible_pixels_mask, :-1]
+            elif len(data.shape) == 2:
+                data[visible_pixels_mask] = superimposed_image[visible_pixels_mask, :-2]
 
         if self.flip == 'ud' or self.flip == 'udlr':
             data = np.fliplr(data)
@@ -496,12 +519,13 @@ def graph_range(repl_globals, tracker_variable_name, tracker_range_variable_name
     win.show()
 
 
-def image_sequence(repl_globals, tracker_variable_name, plotted_y_variable_name,
+def image_sequence(repl_globals, tracker_variable_name, base_image_name, superimposed_image_name=None,
                    image_levels=None, colormap=None, opacity=None, flip=None):
     win = ImagesGUI()
     open_windows[win.uuid] = win
     win.repl_globals = repl_globals
-    win.plotted_y_variable_name = plotted_y_variable_name
+    win.base_image_name = base_image_name
+    win.superimposed_image_name = superimposed_image_name
     win.tracker_variable_name = tracker_variable_name
     win.image_levels = image_levels
 
@@ -510,7 +534,7 @@ def image_sequence(repl_globals, tracker_variable_name, plotted_y_variable_name,
         max = image_levels[1]
 
     if colormap is not None:
-        if repl_globals[plotted_y_variable_name].__class__ is str:
+        if repl_globals[base_image_name].__class__ is str:
             print('Colormap info will not be used on video frames')
         else:
             colormap = plt.get_cmap(colormap)
