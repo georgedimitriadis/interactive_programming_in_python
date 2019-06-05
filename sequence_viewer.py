@@ -215,7 +215,7 @@ class GraphPaneGUI(AbstractSequencerGUI):
                 y = self.transform(y)
 
             y = y.flatten()
-            self.plot_data_item.setData(self.x_axis, y)
+            self.plot_data_item.setData(self.x_axis, y, pen='k')
 
     def on_timer_tick(self):
         if self.repl_globals is not None:
@@ -242,7 +242,7 @@ class GraphRangeGUI(GraphPaneGUI):
 
         self.tracker_range_variable_name = None
         self.index_range = None
-
+        self.brush = (0, 0, 0, 255)
         self.range_is_being_edited = False
 
         self.edit_text_range = QtWidgets.QLineEdit()
@@ -324,7 +324,7 @@ class GraphRangeGUI(GraphPaneGUI):
             if self.transform is not None:
                 y = self.transform(y)
 
-            self.plot_data_item.setData(self.x_axis, y)
+            self.plot_data_item.setData(self.x_axis, y, pen='k')
 
         elif len(np.shape(self.data)) == 2:
             # The connect argument allows a single line to be broken up (see pg.ArrayToQPath) so that the
@@ -340,7 +340,7 @@ class GraphRangeGUI(GraphPaneGUI):
             connect[np.arange(self.index_range - 1, y.size, self.index_range)] = 0
             self.plot_data_item.opts['connect'] = connect
 
-            self.plot_data_item.setData(self.x_axis, y)
+            self.plot_data_item.setData(self.x_axis, y, pen='k')
 
     def on_timer_tick(self):
         if self.repl_globals is not None:
@@ -409,13 +409,13 @@ class ImagesGUI(AbstractSequencerGUI):
                 print('You need to have Open CV 3 installed to pass a video file to the video sequencer')
                 self.close()
         else:
-            self.data = self.repl_globals[self.plotted_y_variable_name]
+            self.data = self.repl_globals[self.base_image_name]
 
         if self.superimposed_image_name is not None:
             try:
                 self.superimposed_image = self.repl_globals[self.superimposed_image_name]
             except KeyError:
-                print('Variable {} to superimpose to plot not defined in the REPL'.format(self.plotted_y_variable_name))
+                print('Variable {} to superimpose to plot not defined in the REPL'.format(self.superimposed_image_name))
                 self.close()
             if self.superimposed_image.shape[2] != 4:
                 print('Superimposed image needs transparency so it needs to be an RGBA (4 values in its 3rd dimension) matrix')
